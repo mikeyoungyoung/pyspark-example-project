@@ -15,7 +15,7 @@ then
     pipenv lock -r > requirements.txt
 
     # install packages to a temporary directory and zip it
-    touch requirements.txt  # safeguard in case there are no packages
+    touch ./requirements.txt  # safeguard in case there are no packages
     pip3 install -r requirements.txt --target ./packages
 
     # check to see if there are any external dependencies

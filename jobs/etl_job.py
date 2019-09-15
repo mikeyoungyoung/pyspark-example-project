@@ -37,6 +37,7 @@ from pyspark.sql import Row
 from pyspark.sql.functions import col, concat_ws, lit
 
 from dependencies.spark import start_spark
+from dependencies.data_eng import extract_data_module, load_data, transform_data
 
 
 def main():
@@ -53,7 +54,8 @@ def main():
     log.warn('etl_job is up-and-running')
 
     # execute ETL pipeline
-    data = extract_data(spark)
+    data = extract_data_module(spark) # extract_data(spark)
+    print(data)
     data_transformed = transform_data(data, config['steps_per_floor'])
     load_data(data_transformed)
 
@@ -61,55 +63,6 @@ def main():
     log.warn('test_etl_job is finished')
     spark.stop()
     return None
-
-
-def extract_data(spark):
-    """Load data from Parquet file format.
-
-    :param spark: Spark session object.
-    :return: Spark DataFrame.
-    """
-    df = (
-        spark
-        .read
-        .parquet('tests/test_data/employees'))
-
-    return df
-
-
-def transform_data(df, steps_per_floor_):
-    """Transform original dataset.
-
-    :param df: Input DataFrame.
-    :param steps_per_floor_: The number of steps per-floor at 43 Tanner
-        Street.
-    :return: Transformed DataFrame.
-    """
-    df_transformed = (
-        df
-        .select(
-            col('id'),
-            concat_ws(
-                ' ',
-                col('first_name'),
-                col('second_name')).alias('name'),
-               (col('floor') * lit(steps_per_floor_)).alias('steps_to_desk')))
-
-    return df_transformed
-
-
-def load_data(df):
-    """Collect data locally and write to CSV.
-
-    :param df: DataFrame to print.
-    :return: None
-    """
-    (df
-     .coalesce(1)
-     .write
-     .csv('loaded_data', mode='overwrite', header=True))
-    return None
-
 
 def create_test_data(spark, config):
     """Create test data.
