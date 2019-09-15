@@ -87,7 +87,7 @@ def read_from_postgres(spark, host, user, password, table_name):
     """
     df_tmp = spark.read.format('jdbc').options(
         url="jdbc:postgresql://{0}:5432/postgres?user={1}&password={2}"\
-            .format(host, user, password), #{golang_user}&password='go'",
+            .format(host, user, password),
         database='postgres',
         dbtable='{0}'.format(table_name)
     ).load().cache()
