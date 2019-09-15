@@ -37,8 +37,7 @@ from pyspark.sql import Row
 from pyspark.sql.functions import col, concat_ws, lit
 
 from dependencies.spark import start_spark
-from dependencies.data_eng import extract_data_module, load_data, transform_data
-
+from dependencies.data_eng import extract_data_module, load_data, transform_data, read_from_postgres
 
 def main():
     """Main ETL script definition.
@@ -55,7 +54,14 @@ def main():
 
     # execute ETL pipeline
     data = extract_data_module(spark) # extract_data(spark)
-    print(data)
+    customer_data = read_from_postgres(
+        spark, "localhost",
+        "golang_user",
+        "go",
+        "customer_price_list"
+        )
+    print(customer_data.show())
+    print(data.show())
     data_transformed = transform_data(data, config['steps_per_floor'])
     load_data(data_transformed)
 

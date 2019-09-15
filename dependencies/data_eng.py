@@ -73,3 +73,22 @@ def get_data_from_csv(file_path, spark):
         .option("inferSchema", "true")\
         .csv(file_path)
     return temp_df
+
+def read_from_postgres(spark, host, user, password, table_name):
+    """Function to create a Spark Dataframe from a PostgreSQL table
+
+    :param spark: SparkSession Object
+    :param host: databse host
+    :param user: JDBC username
+    :param password: JDBC password
+    :param table_name: Name of table to read from
+
+    :return Dataframe
+    """
+    df_tmp = spark.read.format('jdbc').options(
+        url="jdbc:postgresql://{0}:5432/postgres?user={1}&password={2}"\
+            .format(host, user, password), #{golang_user}&password='go'",
+        database='postgres',
+        dbtable='{0}'.format(table_name)
+    ).load().cache()
+    return df_tmp
