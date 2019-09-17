@@ -7,6 +7,6 @@
 .venv
 venv/*
 loaded_data/*
+configs/*.json
 derby.log
 .DS_Store
-*.json
