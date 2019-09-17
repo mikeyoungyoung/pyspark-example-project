@@ -9,6 +9,8 @@ name = "pypi"
 pyspark = "==2.4.3"
 ipython = "*"
 "flake8" = "*"
+requests = "==2.22.0"
+geocoder = "==1.38.1"
 
 [requires]
 python_version = "3.7.4"

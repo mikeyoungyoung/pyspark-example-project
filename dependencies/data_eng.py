@@ -12,8 +12,11 @@ from pyspark import SparkFiles
 from pyspark.sql import SparkSession
 
 
-from pyspark.sql.functions import col, concat_ws, lit
+from pyspark.sql.functions import col, concat_ws, lit, udf
+from pyspark.sql.types import StructField, StructType, StringType
 from dependencies import logging
+import requests
+import geocoder
 import __main__
 
 def extract_data_module(spark):
@@ -28,6 +31,23 @@ def extract_data_module(spark):
         .parquet('tests/test_data/employees'))
 
     return df
+
+def geocode_address(address, api_key):
+    geo_address_schema = StructType([StructField("city", StringType()),\
+                     StructField("country", StringType()),\
+                     StructField("hostname", StringType()),\
+                     StructField("ip", StringType()),\
+                     StructField("loc", StringType()),\
+                     StructField("org", StringType()),\
+                     StructField("phone", StringType()),\
+                     StructField("postal", StringType()),\
+                     StructField("region", StringType())])
+    g = geocoder.google(address, key=api_key, exactly_one=True)
+    # x = json.dumps(g.raw) #['place_id'] #json.dumps(response.json()) #["org"]
+    place_id = g.raw['place_id']
+    return place_id
+geocode_address_udf = udf(geocode_address, StringType())
+
 
 def transform_data(df, steps_per_floor_):
     """Transform original dataset.
@@ -45,7 +65,8 @@ def transform_data(df, steps_per_floor_):
                 ' ',
                 col('first_name'),
                 col('second_name')).alias('name'),
-               (col('floor') * lit(steps_per_floor_)).alias('steps_to_desk')))
+                (col('floor') * lit(steps_per_floor_)).alias('steps_to_desk'))
+                )
 
     return df_transformed
 def load_data(df):

@@ -37,7 +37,7 @@ from pyspark.sql import Row
 from pyspark.sql.functions import col, concat_ws, lit
 
 from dependencies.spark import start_spark
-from dependencies.data_eng import extract_data_module, load_data, transform_data, read_from_postgres
+from dependencies.data_eng import extract_data_module, load_data, transform_data, read_from_postgres, geocode_address, geocode_address_udf
 
 def main():
     """Main ETL script definition.
@@ -65,6 +65,19 @@ def main():
     data_transformed = transform_data(data, config['steps_per_floor'])
     load_data(data_transformed)
 
+    """Start the geocoding portion
+    """
+    address1 = Row(id='123456', address='14 Maryland Blvd Toronto')
+    address2 = Row(id='789012', address='Suite 2300 100 Wellington St West Toronto')
+    address3 = Row(id='345678', address='10 Bay Street Toronto')
+    address4 = Row(id='901234', address='373 Glebeholme Blvd Toronto')
+    addresses = [address1, address2, address3, address4]
+    address_df = spark.createDataFrame(addresses)
+    geo_enriched_data = address_df.withColumn(
+        "PlaceID", geocode_address_udf(col("address"), lit(config['api_key']))
+        )
+    print(geo_enriched_data.show())
+
     # log the success and terminate Spark application
     log.warn('test_etl_job is finished')
     spark.stop()
@@ -80,14 +93,14 @@ def create_test_data(spark, config):
     """
     # create example data from scratch
     local_records = [
-        Row(id=1, first_name='Dan', second_name='Germain', floor=1),
-        Row(id=2, first_name='Dan', second_name='Sommerville', floor=1),
-        Row(id=3, first_name='Alex', second_name='Ioannides', floor=2),
-        Row(id=4, first_name='Ken', second_name='Lai', floor=2),
-        Row(id=5, first_name='Stu', second_name='White', floor=3),
-        Row(id=6, first_name='Mark', second_name='Sweeting', floor=3),
-        Row(id=7, first_name='Phil', second_name='Bird', floor=4),
-        Row(id=8, first_name='Kim', second_name='Suter', floor=4)
+        Row(id=1, first_name='Dan', second_name='14 Maryland Blvd', floor=1),
+        Row(id=2, first_name='Dan', second_name='16 Maryland Blvd', floor=1),
+        Row(id=3, first_name='Alex', second_name='100 Wellington St West Floor 2300 Toronto', floor=2),
+        Row(id=4, first_name='Ken', second_name='373 Glebehome Blvd Toronto', floor=2),
+        Row(id=5, first_name='Stu', second_name='75 Main Street Hamilton', floor=3),
+        Row(id=6, first_name='Mark', second_name='1 University Drive Regina', floor=3),
+        Row(id=7, first_name='Phil', second_name='19 1st Street North Saskatoon', floor=4),
+        Row(id=8, first_name='Kim', second_name='12 Suter Ave', floor=4)
     ]
 
     df = spark.createDataFrame(local_records)

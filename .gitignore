@@ -9,3 +9,4 @@ venv/*
 loaded_data/*
 derby.log
 .DS_Store
+configs/etl_config.json
