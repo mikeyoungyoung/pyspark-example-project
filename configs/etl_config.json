@@ -1,4 +1,5 @@
 {
   "steps_per_floor": 21,
-  "api_key": "<key_here>"
+  "api_key": "<key_here>",
+  "new_item": "test gitignore"
 }
