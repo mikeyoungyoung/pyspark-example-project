@@ -6,17 +6,21 @@ Module containing helper functions for use with Apache Spark
 """
 
 
-from os import environ, listdir, path
+# from os import environ, listdir, path
+import os
 import json
 from pyspark import SparkFiles
 from pyspark.sql import SparkSession
-
+from collections import OrderedDict
 
 from pyspark.sql.functions import col, concat_ws, lit, udf
 from pyspark.sql.types import StructField, StructType, StringType
 from dependencies import logging
 import requests
 import geocoder
+import urllib
+import pandas as pd
+import json
 import __main__
 
 def extract_data_module(spark):
@@ -32,20 +36,35 @@ def extract_data_module(spark):
 
     return df
 
-def geocode_address(address, api_key):
-    geo_address_schema = StructType([StructField("city", StringType()),\
-                     StructField("country", StringType()),\
-                     StructField("hostname", StringType()),\
-                     StructField("ip", StringType()),\
-                     StructField("loc", StringType()),\
-                     StructField("org", StringType()),\
-                     StructField("phone", StringType()),\
-                     StructField("postal", StringType()),\
-                     StructField("region", StringType())])
-    g = geocoder.google(address, key=api_key, exactly_one=True)
-    # x = json.dumps(g.raw) #['place_id'] #json.dumps(response.json()) #["org"]
-    place_id = g.raw['place_id']
-    return place_id
+def get_chd_file(username, password):
+    """Download new data file from CHD
+    :param username: site user name
+    :param password: password
+
+    :returns filename
+    """
+    ftp_url = 'ftp://'+username+':'+password+'@ftp.chdnorthamerica.com/{0}.csv'.format("birch_hill_equity_us_chd_data_delivery_file")
+    filename, headers = urllib.request.urlretrieve(ftp_url, 'tests/chd/birch_hill_equity_us_chd_data_delivery_file.csv')
+    return filename
+
+def geocode_address(address):
+    """If you are getting a fork split error: export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+    """
+    print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+    print("Request geocode for address: {}".format(address))
+    print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+    with requests.Session() as session:
+        try:
+        # TODO: Handle None being passed in as an address
+            g = geocoder.google(address, key=os.environ['GOOGLE_API_KEY'], exactly_one=True, session=session)
+            if g.status == 'OK':
+                place_id = g.raw['place_id']
+                return place_id
+            else:
+                return g.status
+                # return "no api call"
+        except Exception as e:
+            return e
 geocode_address_udf = udf(geocode_address, StringType())
 
 
@@ -81,7 +100,7 @@ def load_data(df):
      .csv('loaded_data', mode='overwrite', header=True))
     return None
 
-def get_data_from_csv(file_path, spark):
+def get_data_from_csv(file_path, spark, delimeter):
     """Load data from a csv location
 
     :param file_path: path the the file[s]
@@ -90,9 +109,12 @@ def get_data_from_csv(file_path, spark):
     :return Dataframe
     """
     temp_df = spark.read\
+        .format('csv')\
         .option("header", "true")\
         .option("inferSchema", "true")\
-        .csv(file_path)
+        .option("delimiter", delimeter)\
+        .load(file_path)
+    
     return temp_df
 
 def read_from_postgres(spark, host, user, password, table_name):
@@ -113,3 +135,29 @@ def read_from_postgres(spark, host, user, password, table_name):
         dbtable='{0}'.format(table_name)
     ).load().cache()
     return df_tmp
+
+def match_salesforce_to_chd(sf_df, chd_df):
+    """Match two DFs based on CHD id
+    """
+    temp_df = chd_df.join(sf_df, chd_df.chd_id == sf_df.CHD_Id__c)
+    return temp_df
+
+def get_sf_df(query, salesforce, spark):
+    """Create a spark dataframe from simple_salesforce query_all
+    """
+    temp_list = salesforce.query_all(query)
+
+    tmp_pdf = pd.DataFrame(temp_list['records'])
+    spark_df = spark.createDataFrame(tmp_pdf)
+    return spark_df
+
+def convert_simple_salesforce_ordered_dictionary_to_pandas_dataframe(records):
+
+    # Get records list from the ordered dictionary
+    tmp_pdf = pd.Dataframe(records)
+
+    tmp_pdf['parsed_address'] = tmp_pdf['ShippingAddress'].apply(lambda x: json.dumps(x))
+    cols_to_drop = ["attributes", "ShippingAddress"]
+    tmp_pdf = tmp_pdf.drop(cols_to_drop, axis=1)
+
+    return tmp_pdf

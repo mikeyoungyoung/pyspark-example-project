@@ -6,6 +6,7 @@
 .vscode/*
 .venv
 venv/*
+tests/*
 loaded_data/*
 configs/*.json
 derby.log

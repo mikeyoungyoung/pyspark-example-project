@@ -34,16 +34,26 @@ Zeppelin notebook).
 """
 
 from pyspark.sql import Row
-from pyspark.sql.functions import col, concat_ws, lit
+from pyspark.sql.functions import col, lit
 
 from dependencies.spark import start_spark
-from dependencies.data_eng import extract_data_module, load_data, transform_data, read_from_postgres, geocode_address, geocode_address_udf
+from dependencies.data_eng import extract_data_module, load_data, transform_data, read_from_postgres
+from dependencies.data_eng import get_chd_file, geocode_address, geocode_address_udf
+import argparse
 
 def main():
     """Main ETL script definition.
 
     :return: None
     """
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--ftp_user',dest='ftp_user',help='FTP user name')
+    parser.add_argument('--ftp_password',dest='ftp_password',help='FTP Password')
+    parser.add_argument('--api_key',dest='api_key',help='Google Maps API Key')
+    
+    known_args = parser.parse_args()
+
     # start Spark application and get Spark session, logger and config
     spark, log, config = start_spark(
         app_name='my_etl_job',
@@ -74,10 +84,11 @@ def main():
     addresses = [address1, address2, address3, address4]
     address_df = spark.createDataFrame(addresses)
     geo_enriched_data = address_df.withColumn(
-        "PlaceID", geocode_address_udf(col("address"), lit(config['api_key']))
+        "PlaceID", geocode_address_udf(col("address"), lit(known_args.api_key))
         )
     print(geo_enriched_data.show())
-
+    file_name = get_chd_file(known_args.ftp_user, known_args.ftp_password)
+    print(file_name)
     # log the success and terminate Spark application
     log.warn('test_etl_job is finished')
     spark.stop()
